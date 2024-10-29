@@ -13,8 +13,6 @@ For more information, see the TikZ manual:
 - https://tikz.dev/
 - https://ftp.mpi-inf.mpg.de/pub/tex/mirror/ftp.dante.de/pub/tex/graphics/pgf/base/doc/pgfmanual.pdf
 
-![triforce](pgfdeclareshape-demo.pdf)
-
 ## About pgf/TikZ
 
 - developed by Till Tantau for creating graphics in his PhD thesis
