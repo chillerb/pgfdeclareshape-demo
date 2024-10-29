@@ -1,0 +1,259 @@
+\documentclass[tikz]{standalone}
+\usetikzlibrary{shapes.multipart}
+
+% AUTHOR: Bjarne C. Hiller
+% DESCRIPTION: short example that demonstrates how to declare a new tikz multipart shape with pgfdeclare
+
+% Bookmarks:
+%   https://tikz.dev/
+%   https://ctan.org/pkg/pgf
+
+% pgfdeclare defines a new node shape like rect and circle on the base layer
+% new shape can be used via: \node[shape=myshape] {};
+% see: https://tikz.dev/base-nodes#sec-106.5
+
+% for repeating shapes and figures, you can also use tikz's Pics
+% that can be instantiated anywhere on a path
+% see: https://tikz.dev/tikz-pics
+
+% so when should you consider using pgfdeclareshape?
+% - shapes can be referenced later and can declare its own anchors for line connectors
+% - while nodes within a tikz picture can be referenced, the picture itself cannot
+% - custom shapes are faster to construct compared to tikz pictures
+
+% our shape should have some custom properties that we need to define
+% pgf uses a key-value system to store parameters
+% use \pgfkeys{key=value} to write new keys
+% use \pgfkeysvalueof{key} to read a key's value
+% the key-value system has a tree structure similar to UNIX file system's
+% e.g., variables relevant for tikz are prefixed with the path \pgfkeysvalueof{/tikz/variable}
+% actually, \tikzset{} internally uses \pgfkeys, but prepends every key with /tikz/
+% there are some special key handlers, see the section Key Handlers in the pgf/tikz documentary
+% e.g., variable/.initial=3 stores 3 as the initial value of the variable
+% also, \pgfkeys{/path/.cd, a=3, b=4} "changes directory" to path to define /path/a and /path/b
+
+% which color to fill the triforce with
+\pgfkeys{
+    /tikz/.cd, 
+    triforce side/.initial=3cm,
+}
+
+% makeatletter is essential here
+\makeatletter
+
+% declaring new shapes with \pgfdeclareshape:
+%   - required:
+%       - shape of the node
+%       - code for computing saved anchors and saved dimensions
+%       - code for computing anchor positions from saved anchors
+%   - optional:
+%       - code for background and forground path
+%       - code for things to be drawn before/behind background/foreground path
+%       - list of nodeparts
+
+% define new length and set values
+% latex will handle lengths a little bit different
+% e.g., 0.5 * 10cm will be replaced with 5 cm for lengths
+\newlength{\triforcea}
+\newlength{\triforceh}
+\newlength{\triforcemidbot}
+\newlength{\triforcemidtop}
+\newlength{\triforcemidhalf}
+\newlength{\triforcemidbotsmall}
+\newlength{\triforcemidtopsmall}
+
+\pgfdeclareshape{triforce}{
+    % setup macros within triforce shape
+    % e.g., to simplify parameter access
+    \savedmacro\triforceparams{%
+        % difference between def and edef:
+        % def defines replacement of macro without expansion
+        % e.g., \def\mymacro{\abc} will replace \mymacro with \abc
+        % edef expands replacement at definition time
+        % e.g., \edef\mymacro{\abc} will replace \mymacro with the replacement of \abc at time of definition
+        % for some reason, fill color is not stored in /tikz/fill
+        \edef\triforcefill{\tikz@fillcolor}
+        %\edef\triforcefill{\pgfkeysvalueof{/tikz/triforce fill}}
+        \setlength{\triforcea}{\pgfkeysvalueof{/tikz/triforce side}}
+        % \pgfmathparse will evaluate math expressions
+        % and store the result (without units!) as text in \pgfmathresult
+        % compute triforce height given side length a
+        %\pgfmathparse{sin(60)*\triforcea}
+        %\setlength{\triforceh}{\pgfmathresult pt}
+        % instead can use \pgfmathset to avoid redundancy
+        \pgfmathsetlength{\triforceh}{sin(60)*\triforcea}
+        % compute bot to center point
+        \pgfmathsetlength{\triforcemidbot}{tan(30) * \triforcea / 2}
+        % compute trigorce height above center point
+        \pgfmathsetlength{\triforcemidtop}{\triforceh - \triforcemidbot}
+        % compute center to half height
+        \pgfmathsetlength{\triforcemidhalf}{\triforcemidtop - 0.5\triforceh}
+        % compute bot to center for small triangle
+        \pgfmathsetlength{\triforcemidbotsmall}{tan(30)*0.25\triforcea}
+        % compute center to top for small triangle
+        \pgfmathsetlength{\triforcemidtopsmall}{0.5\triforceh - \triforcemidbotsmall}
+    }
+
+    % next, we need to define saved anchors and our anchors!
+    % anchors set the values of \pgf@x and \pgf@y to a specific position of the shape
+    % however, there is a difference between SAVED anchors and anchors:
+    % a \savedanchor is computed once when a node is declared
+    % an \anchor is computed every time the anchor is requested
+    % Notice that saved anchors are not automatically anchors!
+    % If you get an error like this, you probably missed to declare the center anchor, which sould always be present:
+    %   Package PGF Math Error: Unknown function `center' (in 'center')
+    % 
+
+    % by default, each node only has the part "text"
+    % using \nodeparts, we can define new node parts by passing a list of part names
+    % each nodepart XYZ requires an anchor XYZ and a textbox \pgfnodepartsXYZbox
+    % the textbox for each nodepart is automatically placed on the corresponding anchor
+    \nodeparts{tritop,trileft,triright}
+
+    \savedanchor\centerpoint{
+        % \pgfpointorigin sets \pgf@x and \pgf@y to the origin point
+        % equivalent to \pgf@x=0pt and \pgf@y=0pt
+        \pgfpointorigin%
+    }
+
+    % notice how savedanchor expects the name as command, but \anchor expects the name as argument!
+    \anchor{center}{\centerpoint}
+
+    \savedanchor\southpoint{
+        \triforceparams
+        \pgfpointorigin
+        \advance\pgf@y by -\triforcemidbot
+    }
+
+    \anchor{south}{\southpoint}
+    
+    \savedanchor\northpoint{
+        \triforceparams
+        \pgfpointorigin
+        \advance\pgf@y by \triforcemidtop
+    }
+
+    \anchor{north}{\northpoint}
+
+    \savedanchor\westpoint{
+        \triforceparams
+        \pgfpointorigin
+        \advance\pgf@x by -0.25\triforcea
+        \advance\pgf@y by \triforcemidhalf
+    }
+
+    \anchor{west}{\westpoint}
+
+    \savedanchor\eastpoint{
+        \triforceparams
+        \pgfpointorigin
+        \advance\pgf@x by 0.25\triforcea
+        \advance\pgf@y by \triforcemidhalf
+    }
+
+    \anchor{east}{\eastpoint}
+
+    \anchorborder{
+        \triforceparams
+        \@tempdima=\pgf@x
+        \@tempdimb=\pgf@y
+        \pgfpointborderrectangle{\pgfpoint{\@tempdima}{\@tempdimb}}{\pgfpoint{0.5\triforcea}{0.5\triforceh}}
+    }
+
+    \savedanchor\southeastpoint{
+        \triforceparams
+        \pgfpointorigin
+        \advance\pgf@x by 0.5\triforcea
+        \advance\pgf@y by -\triforcemidbot
+    }
+    \anchor{southeast}{\southeastpoint}
+
+    \savedanchor\southwestpoint{
+        \triforceparams
+        \pgfpointorigin
+        \advance\pgf@x by -0.5\triforcea
+        \advance\pgf@y by -\triforcemidbot
+    }
+    \anchor{southwest}{\southwestpoint}
+
+    \anchor{tritop}{
+        \northpoint
+        \advance\pgf@x by -0.5\wd\pgfnodeparttritopbox
+        \advance\pgf@y by -\triforcemidtopsmall
+        \advance\pgf@y by -0.5\ht\pgfnodeparttritopbox
+    }
+
+    \anchor{trileft}{
+        \southwestpoint%
+        \advance\pgf@x by 0.25\triforcea
+        \advance\pgf@x by -0.5\wd\pgfnodeparttrileftbox
+        \advance\pgf@y by -0.5\ht\pgfnodeparttrileftbox
+        \advance\pgf@y by \triforcemidbotsmall
+    }
+
+    \anchor{triright}{
+        \southeastpoint%
+        \advance\pgf@x by -0.25\triforcea
+        \advance\pgf@x by -0.5\wd\pgfnodeparttrirightbox
+        \advance\pgf@y by -0.5\ht\pgfnodeparttrirightbox
+        \advance\pgf@y by \triforcemidbotsmall
+    }
+
+    % finally, let's draw the outline of our shape
+    \backgroundpath{
+        \triforceparams
+        % the fillcolor is actually already set, if tikz's fill option was used
+        % \pgfsetfillcolor{\tikz@fillcolor}
+        % top triforce of power
+        \northpoint
+        \pgfmoveto{\pgfpoint{\pgf@x}{\pgf@y}} 
+        \westpoint
+        \pgfpathlineto{\pgfpoint{\pgf@x}{\pgf@y}} 
+        \eastpoint
+        \pgfpathlineto{\pgfpoint{\pgf@x}{\pgf@y}} 
+        \pgfusepath{fill}
+        % left triforce of wisdom
+        \westpoint
+        \pgfmoveto{\pgfpoint{\pgf@x}{\pgf@y}} 
+        \southwestpoint
+        \pgfpathlineto{\pgfpoint{\pgf@x}{\pgf@y}} 
+        \southpoint
+        \pgfpathlineto{\pgfpoint{\pgf@x}{\pgf@y}} 
+        \pgfusepath{fill}
+        % right triforce of courage
+        \eastpoint
+        \pgfmoveto{\pgfpoint{\pgf@x}{\pgf@y}} 
+        \southpoint
+        \pgfpathlineto{\pgfpoint{\pgf@x}{\pgf@y}} 
+        \southeastpoint
+        \pgfpathlineto{\pgfpoint{\pgf@x}{\pgf@y}} 
+        \pgfusepath{fill}
+    }
+}
+
+% return back to normal
+\makeatother
+
+\begin{document}
+
+% for each node part XYZ a custom shape needs to declare:
+%   - an anchor XYZ where the text box will be placed
+%   - its own text box \pgfnodepartXYZbox
+\newbox\pgfnodeparttritopbox
+\newbox\pgfnodeparttrileftbox
+\newbox\pgfnodeparttrirightbox
+
+\begin{tikzpicture}
+    % draw triforce
+    \node[draw, shape=triforce, triforce side=7cm, fill=yellow] at (0,2.5) (triforce) {\nodepart{tritop} Power \nodepart{trileft} Wisdom \nodepart{triright} Courage};
+    \node[draw, circle, fill=blue!50!white, minimum height=2cm] at (triforce.center) {};
+    % draw dark triforce
+    \node[draw, shape=triforce, triforce side=7cm, fill=yellow!40!black, rotate=180] (darkforce) at (0,-2.5) {\nodepart{tritop} Oppression \nodepart{trileft} Apathy \nodepart{triright} Ignorance};
+    \node[draw, circle, fill=red!50!black, minimum height=2cm] at (darkforce.center) {};
+    % draw lines to connect anchors
+    \draw (triforce.south) -- (darkforce.south);
+    \draw (triforce.southwest) -- (darkforce.southeast);
+    \draw (triforce.southeast) -- (darkforce.southwest);
+\end{tikzpicture}
+
+\end{document}
